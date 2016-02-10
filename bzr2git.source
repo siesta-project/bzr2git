@@ -3,22 +3,24 @@
 # initialize
 unset PYTHONHOME
 
-_MARKS_DIR=../marks
+# Default marks directory
+_MARKS_DIR=marks
+_MERGE_DIR=merge
 
 # Default user
 _SIESTA_USER=""
+_SKIP_PULL=0
 
 function set_siesta_user {
     _SIESTA_USER=$1
     shift
 }
-set_siesta_user siesta
 
 # Function to provide all import-marks statements in correct order
 function gmarks() {
     for m in `echo -n $_GMARKS`
     do
-	printf " --import-marks=%s " "$m"
+	printf " --import-marks=../%s " "$m"
     done
 }
 
@@ -26,7 +28,7 @@ function gmarks() {
 function bmarks() {
     for m in `echo -n $_BMARKS`
     do
-	printf " --import-marks=%s " "$m"
+	printf " --import-marks=../%s " "$m"
     done
 }
 
@@ -46,8 +48,6 @@ function update_marks() {
 # Also do
 #   pip install fastimport
 
-mkdir -p .tmp_d
-cd .tmp_d
 # Check and create marks directory
 if [ ! -d $_MARKS_DIR ]; then
     mkdir $_MARKS_DIR
@@ -59,36 +59,40 @@ _GMARKS=""
 _BMARKS=""
 [ -e $_MARKS_DIR/bzr ] && _BMARKS=`cat $_MARKS_DIR/bzr`
 
-cd ../ ; rm -rf .tmp_d
-
 function bzrbranch {
     local DEF_URL="bzr+ssh://npandersen@siesta.icmab.es/home/siesta-archives/$_SIESTA_USER"
     
-    # Other locals which are not "global"
-    local rem=$1 ; shift
-    local bname=$rem
-    if [ $# -gt 0 ]; then
-	local bname=$1 ; shift
-    fi
-    echo "Fetching branch: $SIESTA_USER/$rem"
-    echo "Saving with branch name $bname"
-
-    # Local branch dir
-    local bdir=merge/$rem
-    
-    if [ ! -d $bdir ]; then
-	bzr branch $DEF_URL/bzr-repo/$rem $bdir
-	[ $? -ne 0 ] && \
-	    return 1
-    else
-	pushd $bdir
-	#bzr pull
-	popd
-    fi
-
+    while [ $# -gt 0 ]; do
+	
+	# Other locals which are not "global"
+	local rem=$1
+	shift
+	echo "Fetching branch: $_SIESTA_USER/$rem"
+	
+	# Local branch dir
+	local bdir=$_MERGE_DIR/$rem
+	
+	if [ ! -d $bdir ]; then
+	    # ensures that top-levels exists
+	    mkdir -p $(dirname $bdir)
+	    bzr branch $DEF_URL/bzr-repo/$rem $bdir
+	    [ $? -ne 0 ] && return 1
+	else
+	    pushd $bdir
+	    bzr pull
+	    popd
+	fi
+    done
 }
 
 function bzr2git {
+
+    # Immediately fetch
+    local rem=$1
+    shift
+    if [ $_SKIP_PULL -eq 0 ]; then
+	bzrbranch $rem
+    fi
 
     # immediately cd to directory
     if [ -d siesta.git ]; then
@@ -99,35 +103,20 @@ function bzr2git {
 	git init --bare
     fi
 
-    local DEF_URL="bzr+ssh://npandersen@siesta.icmab.es/home/siesta-archives/$_SIESTA_USER"
-
     # Command for bzr fast-export
     local BZR_CMD="bzr fast-export"
     local GIT_CMD="git fast-import"
 
     # Other locals which are not "global"
-    local rem=$1 ; shift
     local bname=$rem
     if [ $# -gt 0 ]; then
 	local bname=$1 ; shift
     fi
-    echo "Fetching branch: $SIESTA_USER/$rem"
     echo "Saving with branch name $bname"
 
     # Local branch dir
-    local bdir=../merge/$rem
+    local bdir=../$_MERGE_DIR/$rem
 
-    if [ ! -d $bdir ]; then
-	mkdir -p $(dirname $bdir)
-	bzr branch $DEF_URL/bzr-repo/$rem $bdir
-	[ $? -ne 0 ] && \
-	    return 1
-    else
-	pushd $bdir
-	#bzr pull
-	popd
-    fi
-    
     # Local bzr/git marks
     local bmark=$_MARKS_DIR/bzr.$bname
     local gmark=$_MARKS_DIR/git.$bname
@@ -138,21 +127,46 @@ function bzr2git {
     [ ! -z "$a" ] && return
 
     if [ "$bname" == "master" ]; then
-	$BZR_CMD --export-marks=$bmark $bdir --git-branch=$bname | \
-	    $GIT_CMD --export-marks=$gmark
+	$BZR_CMD --export-marks=../$bmark $bdir --git-branch=$bname | \
+	    $GIT_CMD --export-marks=../$gmark
 	[ $? -ne 0 ] && return 1
     else
-	$BZR_CMD --export-marks=$bmark $(bmarks) $bdir --git-branch=$bname | \
-	    $GIT_CMD $(gmarks) --export-marks=$gmark
+	$BZR_CMD --export-marks=../$bmark $(bmarks) $bdir --git-branch=$bname | \
+	    $GIT_CMD $(gmarks) --export-marks=../$gmark
 	[ $? -ne 0 ] && return 1
     fi
     
+    cd ..
+
     # update globals
     _GMARKS="$gmark $_GMARKS"
     update_marks $_MARKS_DIR/git $_GMARKS
     _BMARKS="$bmark $_BMARKS"
     update_marks $_MARKS_DIR/bzr $_BMARKS
 
-    cd ..
 }
+
+function bzr2git_user() {
+    local user=$1
+    shift
+
+    # Update internal user
+    set_siesta_user $user
+
+    # First fetch branches
+    while read line ; do
+	bzrbranch ${line%% *}
+    done < repos/$user
+
+    # Make sure that we do not fetch/update (done above)
+    local old=$_SKIP_PULL
+    _SKIP_PULL=1
+    while read line ; do
+	local bzr_rem=${line%% *}
+	local git_loc=${line##* }
+	bzr2git $bzr_rem $git_loc
+    done < repos/$user
+    _SKIP_PULL=$old
+}
+
 
