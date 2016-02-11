@@ -166,7 +166,14 @@ function bzrbranch_user() {
 
     # First fetch branches
     while read line ; do
+	case $line in
+	    \#*) continue ;;
+	esac
+	# zero lines skipped
+	[ -z "${line// /}" ] && continue
+	
 	bzrbranch ${line%% *}
+	
     done < repos/$user
 }
 
@@ -184,6 +191,12 @@ function bzr2git_user() {
     local old=$_SKIP_PULL
     _SKIP_PULL=1
     while read line ; do
+	case $line in
+	    \#*) continue ;;
+	esac
+	# zero lines skipped
+	[ -z "${line// /}" ] && continue
+
 	local bzr_rem=${line%% *}
 	local git_loc=${line##* }
 	bzr2git $bzr_rem $git_loc
@@ -192,6 +205,7 @@ function bzr2git_user() {
 }
 
 
+echo ""
 echo "Currently available shell-commands:"
 echo "  bzr2git_pull"
 echo "    inform bzr2git to also perform pull of the remote bzr repo"
@@ -203,6 +217,7 @@ echo "    fetches the remote branch (from `set_siesta_user`)"
 echo "    This will set the user to siesta and fetch the trunk version:"
 echo "      set_siesta_user siesta"
 echo "      bzrbranch trunk"
+echo ""
 
 
 
