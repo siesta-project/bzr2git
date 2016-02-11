@@ -4,7 +4,7 @@
 unset PYTHONHOME
 
 # Default to npandersen
-: ${BZR_USER:?npandersn}
+: "${BZR_USER:=npandersen}"
 
 # Default marks directory
 _MARKS_DIR=marks
@@ -149,7 +149,7 @@ function bzr2git {
 
 }
 
-function bzr2git_user() {
+function bzrbranch_user() {
     local user=$1
     shift
 
@@ -160,6 +160,17 @@ function bzr2git_user() {
     while read line ; do
 	bzrbranch ${line%% *}
     done < repos/$user
+}
+
+
+function bzr2git_user() {
+    local user=$1
+    shift
+
+    # Update internal user
+    set_siesta_user $user
+
+    bzrbranch_user $user
 
     # Make sure that we do not fetch/update (done above)
     local old=$_SKIP_PULL
