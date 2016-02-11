@@ -3,6 +3,9 @@
 # initialize
 unset PYTHONHOME
 
+# Default to npandersen
+: ${BZR_USER:?npandersn}
+
 # Default marks directory
 _MARKS_DIR=marks
 _MERGE_DIR=merge
@@ -60,7 +63,7 @@ _BMARKS=""
 [ -e $_MARKS_DIR/bzr ] && _BMARKS=`cat $_MARKS_DIR/bzr`
 
 function bzrbranch {
-    local DEF_URL="bzr+ssh://npandersen@siesta.icmab.es/home/siesta-archives/$_SIESTA_USER"
+    local DEF_URL="bzr+ssh://$BZR_USER@siesta.icmab.es/home/siesta-archives/$_SIESTA_USER"
     
     while [ $# -gt 0 ]; do
 	
