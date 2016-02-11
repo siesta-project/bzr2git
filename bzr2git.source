@@ -12,7 +12,12 @@ _MERGE_DIR=merge
 
 # Default user
 _SIESTA_USER=""
-_SKIP_PULL=0
+# Default to skip pull of new commits
+_SKIP_PULL=1
+
+function bzr2git_pull() {
+    _SKIP_PULL=0
+}
 
 function set_siesta_user {
     _SIESTA_USER=$1
@@ -80,7 +85,7 @@ function bzrbranch {
 	    mkdir -p $(dirname $bdir)
 	    bzr branch $DEF_URL/bzr-repo/$rem $bdir
 	    [ $? -ne 0 ] && return 1
-	else
+	elif [ $_SKIP_PULL -eq 0 ]; then
 	    pushd $bdir
 	    bzr pull
 	    popd
@@ -182,5 +187,21 @@ function bzr2git_user() {
     done < repos/$user
     _SKIP_PULL=$old
 }
+
+
+echo "Currently available shell-commands:"
+echo "  bzr2git_pull"
+echo "    inform bzr2git to also perform pull of the remote bzr repo"
+echo "  set_siesta_user <user>"
+echo "    update the siesta-user for the remote bzr-repo directory:"
+echo "      set_siesta_user npandersen ...> siesta.icmab.es/npandersen/bzr-repo"
+echo "  bzrbranch <remote>"
+echo "    fetches the remote branch (from `set_siesta_user`)"
+echo "    This will set the user to siesta and fetch the trunk version:"
+echo "      set_siesta_user siesta"
+echo "      bzrbranch trunk"
+
+
+
 
 
