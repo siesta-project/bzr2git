@@ -104,10 +104,10 @@ function bzr2git {
 
     # immediately cd to directory
     if [ -d siesta.git ]; then
-	cd siesta.git
+	pushd siesta.git 2>/dev/null
     else
 	mkdir siesta.git
-	cd siesta.git
+	pushd siesta.git 2>/dev/null
 	git init --bare
     fi
 
@@ -132,8 +132,11 @@ function bzr2git {
     # Check if the branch already exists
     # if so just return
     local a=`git branch | grep $bname`
-    [ ! -z "$a" ] && return
-
+    if [ ! -z "$a" ]; then
+	popd 2>/dev/null
+	return 0
+    fi
+    
     if [ "$bname" == "master" ]; then
 	$BZR_CMD --export-marks=../$bmark $bdir --git-branch=$bname | \
 	    $GIT_CMD --export-marks=../$gmark
@@ -143,8 +146,8 @@ function bzr2git {
 	    $GIT_CMD $(gmarks) --export-marks=../$gmark
 	[ $? -ne 0 ] && return 1
     fi
-    
-    cd ..
+
+    popd 2>/dev/null
 
     # update globals
     _GMARKS="$gmark $_GMARKS"
